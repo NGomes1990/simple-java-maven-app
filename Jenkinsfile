@@ -6,27 +6,26 @@ pipeline {
         jdk 'java-23'
     }
 
-      stages {
-        stage('checkout') {
+    stages {
+        stage('Checkout') {
             steps {
-              git branch : 'master', url: 'https://github.com/NGomes1990/simple-java-maven-app.git'
+                git branch: 'master', url: 'https://github.com/NGomes1990/simple-java-maven-app.git'
             }
         }
-    
-    stages {
+
         stage('Build') {
             steps {
                 sh 'mvn clean verify'
             }
         }
-        
-        stage('Test') { 
+
+        stage('Test') {
             steps {
-                sh 'mvn test' 
+                sh 'mvn test'
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml' 
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
         }
