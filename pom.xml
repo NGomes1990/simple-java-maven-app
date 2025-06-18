@@ -17,6 +17,7 @@
   </dependencies>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
   </properties>
   <build>
     <pluginManagement>
@@ -25,9 +26,6 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.14.0</version>
-          <configuration>
-            <release>17</release>
-          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -60,15 +58,22 @@
             <configuration>
               <rules>
                 <requireMavenVersion>
-                  <version>[3.24,)</version>
+                  <!-- Changed to accept Maven 3.9.9 which you have in Jenkins -->
+                  <version>[3.9.9,)</version>
                 </requireMavenVersion>
                 <requireJavaVersion>
-                  <version>[23,)</version>
+                  <!-- Changed to match your Jenkins JDK version (java-23) -->
+                  <version>[17,)</version>
                 </requireJavaVersion>
               </rules>
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
       </plugin>
     </plugins>
   </build>
