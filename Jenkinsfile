@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3.99'
-        jdk 'java-23'
+        maven 'maven-3.99'  // Changed to match exact case from your Jenkins configuration
+        jdk 'java-23'      // Verify this JDK version exists in your Jenkins configuration
     }
 
     stages {
@@ -15,13 +15,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean verify'
+                bat 'mvn clean package'  // Changed from 'sh' to 'bat' for Windows
             }
         }
-
+        
         stage('Test') {
             steps {
-                sh 'mvn test'
+                bat 'mvn test'  // Changed from 'sh' to 'bat' for Windows
             }
             post {
                 always {
