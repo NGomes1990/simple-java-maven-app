@@ -1,28 +1,152 @@
 pipeline {
     agent any
+    
     options {
         skipStagesAfterUnstable()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
+    
+    environment {
+        MAVEN_OPTS = '-Xmx1024m -XX:MaxPermSize=256m'
+        BUILD_VERSION = "${env.BUILD_ID}"
+        // SonarQube configuration
+        SONAR_SCANNER_OPTS = "-Xmx512m"
+        SONAR_HOST_URL = "http://your-sonarqube-server:9000"
+        SONAR_PROJECT_KEY = "your-project-key"
+        SONAR_PROJECT_NAME = "Your Project Name"
+    }
+    
     stages {
-        stage('Build') {
+        stage('Initialize') {
             steps {
-                sh 'mvn -B -DskipTests clean package'
+                script {
+                    def javaHome = tool name: 'jdk-17', type: 'jdk'
+                    def mavenHome = tool name: 'maven-3.9', type: 'maven'
+                    env.PATH = "${javaHome}/bin:${mavenHome}/bin:${env.PATH}"
+                    
+                    echo "Build Number: ${BUILD_NUMBER}"
+                    echo "Building with Java: ${javaHome}"
+                    echo "Building with Maven: ${mavenHome}"
+                }
             }
         }
-        stage('Test') {
+        
+        stage('Build') {
             steps {
-                sh 'mvn test'
+                sh '''
+                    echo "Building application..."
+                    mvn -B -DskipTests clean package
+                '''
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') { // Configured in Jenkins Global Settings
+                    sh '''
+                        echo "Running SonarQube analysis..."
+                        mvn sonar:sonar \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                            -Dsonar.projectVersion=${BUILD_VERSION} \
+                            -Dsonar.java.binaries=target/classes \
+                            -Dsonar.sources=src/main/java
+                    '''
+                }
+            }
+            post {
+                success {
+                    echo "SonarQube analysis completed successfully"
+                }
+                failure {
+                    error "SonarQube analysis failed"
+                }
+            }
+        }
+        
+        stage('Quality Gate Check') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                sh '''
+                    echo "Running unit tests..."
+                    mvn test
+                '''
             }
             post {
                 always {
                     junit 'target/surefire-reports/*.xml'
+                    archiveArtifacts artifacts: 'target/surefire-reports/*.txt', fingerprint: true
                 }
             }
         }
-        stage('Deliver') { 
-            steps {
-                sh './jenkins/scripts/deliver.sh' 
+        
+        stage('Integration Tests') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
             }
+            steps {
+                sh '''
+                    echo "Running integration tests..."
+                    mvn verify -DskipUnitTests
+                '''
+            }
+            post {
+                always {
+                    junit 'target/failsafe-reports/*.xml'
+                }
+            }
+        }
+        
+        stage('Deliver') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                script {
+                    if (fileExists('./jenkins/scripts/deliver.sh')) {
+                        sh '''
+                            chmod +x ./jenkins/scripts/deliver.sh
+                            ./jenkins/scripts/deliver.sh ${BUILD_VERSION}
+                        '''
+                    } else {
+                        error "Deliver script not found"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+            script {
+                def duration = currentBuild.durationString.replace(' and counting', '')
+                def msg = "${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${duration})"
+                
+                if (currentBuild.currentResult == 'SUCCESS') {
+                    slackSend color: 'good', message: "${msg}\nSonarQube Report: ${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
+                } else {
+                    slackSend color: 'danger', message: msg
+                }
+            }
+        }
+        failure {
+            emailext body: 'Build failed in ${BUILD_URL}\nSonarQube Report: ${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}', 
+                     subject: 'Build Failure in ${JOB_NAME}', 
+                     to: 'dev-team@company.com'
         }
     }
 }
