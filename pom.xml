@@ -58,11 +58,9 @@
             <configuration>
               <rules>
                 <requireMavenVersion>
-                  <!-- Changed to accept Maven 3.9.9 which you have in Jenkins -->
                   <version>[3.9.9,)</version>
                 </requireMavenVersion>
                 <requireJavaVersion>
-                  <!-- Changed to match your Jenkins JDK version (java-23) -->
                   <version>[17,)</version>
                 </requireJavaVersion>
               </rules>
