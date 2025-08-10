@@ -28,6 +28,14 @@ pipeline {
                     junit 'target/surefire-reports/*.xml'
                 }
             }
+
+        stage('deliver') {
+            steps {
+                bat './jenkins/scripts/deliver.sh
+            }
+
+            }
         }
     }
 }
+
