@@ -1,1 +1,3 @@
 @echo off
+echo delivering the application...
+
